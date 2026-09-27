@@ -38,6 +38,8 @@ function App() {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [isTrading, setIsTrading] = useState(false);
+  const [tradeType, setTradeType] = useState("");
 
   // ==========================================
   // LOAD DATA
@@ -85,42 +87,225 @@ function App() {
   // BUY / SELL
   // ==========================================
 
-  const handleTrade = async (type) => {
-    try {
-      setMessage("");
+const handleTrade = async (type) => {
+  try {
+    setMessage("");
 
-      if (!strategy) {
-        setMessage("Strategy data is not available");
-        return;
-      }
-
-      const price = Number(strategy.currentPrice);
-      const tradeQuantity = Number(quantity);
-
-      if (!tradeQuantity || tradeQuantity <= 0) {
-        setMessage("Quantity must be greater than 0");
-        return;
-      }
-
-      const response = await axios.post(
-        `${API}/api/trade/${type}`,
-        {
-          symbol,
-          quantity: tradeQuantity,
-          price
-        }
-      );
-
-      setMessage(response.data.message);
-
-      await loadData();
-
-    } catch (error) {
-      setMessage(
-        error.response?.data?.message || "Trade failed"
-      );
+    if (!strategy) {
+      setMessage("Strategy data is not available");
+      return;
     }
-  };
+
+    const price = Number(strategy.currentPrice);
+    const tradeQuantity = Number(quantity);
+
+    if (!tradeQuantity || tradeQuantity <= 0) {
+      setMessage("Quantity must be greater than 0");
+      return;
+    }
+
+    // Start loading only after validation
+    setIsTrading(true);
+    setTradeType(type);
+
+    // ==========================================
+    // SEND TRADE TO BACKEND
+    // ==========================================
+
+    const response = await axios.post(
+      `${API}/api/trade/${type}`,
+      {
+        symbol,
+        quantity: tradeQuantity,
+        price
+      }
+    );
+
+    // ==========================================
+    // SHOW SUCCESS
+    // ==========================================
+
+    setMessage(response.data.message);
+
+    // ==========================================
+    // UPDATE TRADE HISTORY IMMEDIATELY
+    // ==========================================
+
+    if (response.data.trade) {
+      setTrades((prevTrades) => [
+        response.data.trade,
+        ...prevTrades
+      ]);
+    }
+
+    // ==========================================
+    // UPDATE PORTFOLIO IMMEDIATELY
+    // ==========================================
+
+    setPortfolio((prevPortfolio) => {
+      if (!prevPortfolio || !response.data.trade) {
+        return prevPortfolio;
+      }
+
+      const trade = response.data.trade;
+
+      const updatedHoldings = [
+        ...prevPortfolio.holdings
+      ];
+
+      const holdingIndex = updatedHoldings.findIndex(
+        (item) => item.symbol === trade.symbol
+      );
+
+      // BUY
+      if (type === "buy") {
+        if (holdingIndex !== -1) {
+          const oldHolding =
+            updatedHoldings[holdingIndex];
+
+          const oldQuantity =
+            Number(oldHolding.quantity);
+
+          const oldAveragePrice =
+            Number(oldHolding.averagePrice);
+
+          const newQuantity =
+            oldQuantity + trade.quantity;
+
+          const newAveragePrice =
+            (
+              oldQuantity * oldAveragePrice +
+              trade.quantity * trade.price
+            ) / newQuantity;
+
+          updatedHoldings[holdingIndex] = {
+            ...oldHolding,
+            quantity: newQuantity,
+            averagePrice: newAveragePrice,
+            currentPrice: price,
+            investedValue:
+              newQuantity * newAveragePrice,
+            currentValue:
+              newQuantity * price,
+            profitLoss:
+              newQuantity * price -
+              newQuantity * newAveragePrice
+          };
+        } else {
+          updatedHoldings.push({
+            symbol: trade.symbol,
+            quantity: trade.quantity,
+            averagePrice: trade.price,
+            currentPrice: price,
+            investedValue:
+              trade.quantity * trade.price,
+            currentValue:
+              trade.quantity * price,
+            profitLoss: 0
+          });
+        }
+      }
+
+      // SELL
+      if (type === "sell") {
+        if (holdingIndex !== -1) {
+          const oldHolding =
+            updatedHoldings[holdingIndex];
+
+          const remainingQuantity =
+            Number(oldHolding.quantity) -
+            trade.quantity;
+
+          if (remainingQuantity <= 0) {
+            updatedHoldings.splice(holdingIndex, 1);
+          } else {
+            const averagePrice =
+              Number(oldHolding.averagePrice);
+
+            updatedHoldings[holdingIndex] = {
+              ...oldHolding,
+              quantity: remainingQuantity,
+              currentPrice: price,
+              investedValue:
+                remainingQuantity * averagePrice,
+              currentValue:
+                remainingQuantity * price,
+              profitLoss:
+                remainingQuantity * price -
+                remainingQuantity * averagePrice
+            };
+          }
+        }
+      }
+
+      // RECALCULATE PORTFOLIO
+
+      const balance =
+        type === "buy"
+          ? Number(prevPortfolio.balance) -
+            Number(trade.totalValue)
+          : Number(prevPortfolio.balance) +
+            Number(trade.totalValue);
+
+      const investedValue =
+        updatedHoldings.reduce(
+          (total, holding) =>
+            total + Number(holding.investedValue),
+          0
+        );
+
+      const currentValue =
+        updatedHoldings.reduce(
+          (total, holding) =>
+            total + Number(holding.currentValue),
+          0
+        );
+
+      const totalProfitLoss =
+        currentValue - investedValue;
+
+      return {
+        ...prevPortfolio,
+        balance,
+        investedValue,
+        currentValue,
+        totalProfitLoss,
+        totalPortfolioValue:
+          balance + currentValue,
+        holdings: updatedHoldings
+      };
+    });
+
+    // ==========================================
+    // BACKGROUND SYNC
+    // ==========================================
+
+    Promise.all([
+      axios.get(`${API}/api/portfolio`),
+      axios.get(`${API}/api/trades`)
+    ])
+      .then(([portfolioRes, tradesRes]) => {
+        setPortfolio(portfolioRes.data);
+        setTrades(tradesRes.data.trades);
+        setLastUpdated(new Date());
+      })
+      .catch((error) => {
+        console.error(
+          "Background refresh failed:",
+          error
+        );
+      });
+
+  } catch (error) {
+    setMessage(
+      error.response?.data?.message ||
+      "Trade failed"
+    );
+  } finally {
+    setIsTrading(false);
+    setTradeType("");
+  }
+};
 
   // ==========================================
   // INITIAL LOAD + AUTO REFRESH
@@ -140,19 +325,43 @@ function App() {
   // LOADING
   // ==========================================
 
+  // if (!strategy || !portfolio) {
+  //   return <h2 className="loading">Loading Trading Bot...</h2>;
+  // }
   if (!strategy || !portfolio) {
-    return <h2 className="loading">Loading Trading Bot...</h2>;
-  }
-// if (!strategy || !portfolio) {
-//   return (
-//     <div>
-//       <h2 className="loading">Loading Trading Bot...</h2>
+  return (
+    <div className="loading-screen">
+      <div className="loader-content">
 
-//       <p>Strategy: {strategy ? "✅ Loaded" : "❌ Not Loaded"}</p>
-//       <p>Portfolio: {portfolio ? "✅ Loaded" : "❌ Not Loaded"}</p>
-//     </div>
-//   );
-// }
+        <div className="chart-loader">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <h2>Trading Bot</h2>
+
+        <p>
+          Fetching market data
+          <span className="dots">
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </p>
+
+        <div className="loading-bar">
+          <div className="loading-progress"></div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
   // ==========================================
   // UI
   // ==========================================
@@ -264,19 +473,50 @@ function App() {
             onChange={(e) => setQuantity(e.target.value)}
           />
 
-          <button
-            className="buy-button"
-            onClick={() => handleTrade("buy")}
-          >
-            BUY
-          </button>
 
-          <button
-            className="sell-button"
-            onClick={() => handleTrade("sell")}
-          >
-            SELL
-          </button>
+<div className="trade-actions">
+  <button
+    className="buy-button"
+    onClick={() => handleTrade("buy")}
+    disabled={isTrading}
+  >
+    {isTrading && tradeType === "buy"
+      ? "Executing BUY..."
+      : "BUY"}
+  </button>
+
+  <button
+    className="sell-button"
+    onClick={() => handleTrade("sell")}
+    disabled={isTrading}
+  >
+    {isTrading && tradeType === "sell"
+      ? "Executing SELL..."
+      : "SELL"}
+  </button>
+</div>
+
+{/* 👇 BUY/SELL buttons ke neeche */}
+{isTrading && (
+  <div className="trade-loading">
+    <div className="trade-spinner"></div>
+
+    <div>
+      <strong>
+        Executing {tradeType.toUpperCase()} order
+      </strong>
+
+      <p>
+        Processing virtual trade
+        <span className="trade-dots">
+          <span>.</span>
+          <span>.</span>
+          <span>.</span>
+        </span>
+      </p>
+    </div>
+  </div>
+)}
 
         </div>
 
