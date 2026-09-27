@@ -475,46 +475,39 @@ const handleTrade = async (type) => {
 
 
 <div className="trade-actions">
+
   <button
     className="buy-button"
     onClick={() => handleTrade("buy")}
     disabled={isTrading}
+    aria-label="Buy"
   >
-    {isTrading && tradeType === "buy"
-      ? "Executing BUY..."
-      : "BUY"}
+    {isTrading && tradeType === "buy" ? (
+      <span className="button-spinner"></span>
+    ) : (
+      "BUY"
+    )}
   </button>
 
   <button
     className="sell-button"
     onClick={() => handleTrade("sell")}
     disabled={isTrading}
+    aria-label="Sell"
   >
-    {isTrading && tradeType === "sell"
-      ? "Executing SELL..."
-      : "SELL"}
+    {isTrading && tradeType === "sell" ? (
+      <span className="button-spinner"></span>
+    ) : (
+      "SELL"
+    )}
   </button>
+
 </div>
 
 {/* 👇 BUY/SELL buttons ke neeche */}
 {isTrading && (
   <div className="trade-loading">
-    <div className="trade-spinner"></div>
-
-    <div>
-      <strong>
-        Executing {tradeType.toUpperCase()} order
-      </strong>
-
-      <p>
-        Processing virtual trade
-        <span className="trade-dots">
-          <span>.</span>
-          <span>.</span>
-          <span>.</span>
-        </span>
-      </p>
-    </div>
+    <span className="trade-spinner"></span>
   </div>
 )}
 

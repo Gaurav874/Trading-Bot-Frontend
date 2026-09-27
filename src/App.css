@@ -790,3 +790,112 @@ body {
     flex: 1;
   }
 }
+.trade-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.trade-actions button {
+  width: 112px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+
+/* =========================
+   TRADE CONTROLS
+========================= */
+
+.trade-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.trade-controls input {
+  width: 100px;
+  height: 48px;
+  padding: 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+/* BUY + SELL */
+
+.trade-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trade-actions button {
+  width: 115px;
+  height: 48px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+/* Button spinner */
+
+.button-spinner {
+  width: 20px;
+  height: 20px;
+
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: white;
+
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+
+/* =========================
+   TRADE LOADING
+========================= */
+
+.trade-loading {
+  width: 42px;
+  height: 42px;
+
+  padding: 0;
+  margin: 0 0 0 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-sizing: border-box;
+
+  background: rgba(50, 130, 184, 0.1);
+  border: 1px solid rgba(50, 130, 184, 0.3);
+  border-radius: 8px;
+}
+
+/* Loading spinner */
+
+.trade-spinner {
+  width: 20px;
+  height: 20px;
+
+  border: 3px solid rgba(50, 130, 184, 0.25);
+  border-top-color: #3282b8;
+
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
