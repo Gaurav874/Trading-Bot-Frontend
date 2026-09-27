@@ -13,7 +13,7 @@ import {
 
 import "./App.css";
 
-const API = "https://trading-bot-ssb5.onrender.com/";
+const API = "https://trading-bot-ssb5.onrender.com";
 const symbol = "AAPL";
 
 // ==========================================
