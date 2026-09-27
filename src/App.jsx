@@ -140,10 +140,19 @@ function App() {
   // LOADING
   // ==========================================
 
-  if (!strategy || !portfolio) {
-    return <h2 className="loading">Loading Trading Bot...</h2>;
-  }
+  // if (!strategy || !portfolio) {
+  //   return <h2 className="loading">Loading Trading Bot...</h2>;
+  // }
+if (!strategy || !portfolio) {
+  return (
+    <div>
+      <h2 className="loading">Loading Trading Bot...</h2>
 
+      <p>Strategy: {strategy ? "✅ Loaded" : "❌ Not Loaded"}</p>
+      <p>Portfolio: {portfolio ? "✅ Loaded" : "❌ Not Loaded"}</p>
+    </div>
+  );
+}
   // ==========================================
   // UI
   // ==========================================
